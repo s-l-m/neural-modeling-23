@@ -45,12 +45,13 @@ pygame.display.set_caption("Reaching Game")
 feedback_circle = START_POSITION
 error_angle = 0
 store_feedback_circle = START_POSITION
-test_mode = False
+test_mode = True
 score = 0
 attempts = 0
 new_target = None
 start_time = 0
-exp_setup = 'feedback_exp'
+exp_setup = 'feedback_exp_ex4'
+cursor = True
 
 if exp_setup == 'baseline':
     pertubations = [' sudden \n perturbation', ' no \n perturbation', ' sudden \n perturbation', ' no \n perturbation']
@@ -73,15 +74,16 @@ elif exp_setup == 'interference_b1' or exp_setup == 'interference_b2':
         timestamps_changes = [1,20,60,80,100,140,160,180,220,240]
         timestamps_changes_full = [0,20,60,80,100,140,160,180,220,240]
 
-elif exp_setup == 'feedback_exp':
+elif exp_setup == 'feedback_exp' or exp_setup == 'feedback_exp_ex4':
+    cursor = False
     pertubations = ['perturbations: \n gradual', 'none', 'none',  'gradual', 'none', 'none',  'gradual', 'none', 'none', 'gradual', 'none']
     
     if test_mode:
         timestamps_changes = [1,5,10,15,20,25,30,35,40,45,50,55,60]
         timestamps_changes_full = [0,5,10,15,20,25,30,35,40,45,50,55,60]
     else: 
-        timestamps_changes = [1,20,60,80,100,140,160,180,220,240,260,300,320]
-        timestamps_changes_full = [0,20,60,80,100,140,160,180,220,240,260,300,320]
+        timestamps_changes = [1,20,80,100,120,180,200,220,280,300,320,380,400]
+        timestamps_changes_full = [0,20,80,100,120,180,200,220,280,300,320,380,400]
 
 
 ATTEMPTS_LIMIT = timestamps_changes[len(timestamps_changes)-1]+1
@@ -132,7 +134,6 @@ def calculate_angle(centerX, centerY, targetX, targetY, pointX, pointY):
     cross_product = v_CT[0]*v_CP[1] - v_CT[1]*v_CP[0]
     if cross_product < 0:
         angle_deg = angle_deg * (-1)
-
 
     return angle_deg
 
@@ -265,6 +266,7 @@ while running:
             running = False
     
     elif exp_setup == 'feedback_exp':
+        cursor = False
         if attempts == 0:
             start_target = math.radians(START_ANGLES_FBEX[0])
             pertubation_mode = False
@@ -301,6 +303,52 @@ while running:
             pertubation_mode = False
         elif attempts == timestamps_changes[9] + 1:
             feedback_type = 'rl'
+        elif attempts == timestamps_changes[10]:
+            pertubation_mode = True
+            pertubation_type = 'gradual'
+        elif attempts == timestamps_changes[11]:
+            pertubation_mode = False
+        elif attempts >= ATTEMPTS_LIMIT:
+            running = False
+        
+    elif exp_setup == 'feedback_exp_ex4':
+        cursor = False
+        if attempts == 0:
+            start_target = math.radians(START_ANGLES_FBEX[0])
+            pertubation_mode = False
+        elif attempts == timestamps_changes[1]:
+            pertubation_mode = True
+            pertubation_type = 'gradual'
+            perturbation_angle = math.radians(PERTUBATION_ANGLE)
+        elif attempts == timestamps_changes[2]:
+            pertubation_mode = False
+        elif attempts == timestamps_changes[3]:
+            start_target = math.radians(START_ANGLES_FBEX[1])
+            pertubation_mode = False
+        elif attempts == timestamps_changes[3] + 1:
+            feedback_type = 'half_traj_beg'
+        elif attempts == timestamps_changes[4]:
+            pertubation_mode = True
+            pertubation_type = 'gradual'
+        elif attempts == timestamps_changes[5]:
+            pertubation_mode = False
+        elif attempts == timestamps_changes[6]:
+            feedback_type = None
+            start_target = math.radians(START_ANGLES_FBEX[2])
+            pertubation_mode = False
+        elif attempts == timestamps_changes[6] + 1:
+            feedback_type = 'half_traj_end'
+        elif attempts == timestamps_changes[7]:
+            pertubation_mode = True
+            pertubation_type = 'gradual'
+        elif attempts == timestamps_changes[8]:
+            pertubation_mode = False
+        elif attempts == timestamps_changes[9]:
+            feedback_type = None
+            start_target = math.radians(START_ANGLES_FBEX[3])
+            pertubation_mode = False
+        elif attempts == timestamps_changes[9] + 1:
+            feedback_type = 'traj'
         elif attempts == timestamps_changes[10]:
             pertubation_mode = True
             pertubation_type = 'gradual'
@@ -346,8 +394,11 @@ while running:
     else:
         circle_pos = pygame.mouse.get_pos()
 
-    if attempts > 0 and not math.hypot(circle_pos[0] - START_POSITION[0], circle_pos[1] - START_POSITION[1]) > TARGET_RADIUS and not new_target and feedback_type == 'traj':
-        trajectory.append(circle_pos)
+    if not math.hypot(circle_pos[0] - START_POSITION[0], circle_pos[1] - START_POSITION[1]) > TARGET_RADIUS and new_target:
+        if feedback_type == 'traj' or feedback_type == 'half_traj_beg' or feedback_type == 'half_traj_end':
+            trajectory.append(circle_pos)
+    elif not math.hypot(circle_pos[0] - START_POSITION[0], circle_pos[1] - START_POSITION[1]) > TARGET_RADIUS and not new_target:
+        cursor = True
 
 
     # Check if target is hit or missed
@@ -450,12 +501,13 @@ while running:
         pygame.draw.circle(screen, BLUE, new_target, TARGET_SIZE // 2)
 
     # Draw circle cursor
-    if mask_mode:
-        if distance < MASK_RADIUS:
+    if cursor:
+        if mask_mode:
+            if distance < MASK_RADIUS:
+                pygame.draw.circle(screen, WHITE, circle_pos, CIRCLE_SIZE // 2)
+        else:
             pygame.draw.circle(screen, WHITE, circle_pos, CIRCLE_SIZE // 2)
-    else:
-        pygame.draw.circle(screen, WHITE, circle_pos, CIRCLE_SIZE // 2)
-    
+        
 
     # Draw start position
     if feedback_type == 'endpos' and attempts > 0:
@@ -464,9 +516,12 @@ while running:
     pygame.draw.circle(screen, start_pos_color, START_POSITION, CIRCLE_SIZE // 2)
 
     if len(draw) > 1:
-        pygame.draw.lines(screen, WHITE, False, draw, CIRCLE_SIZE // 4)
-
-
+        if feedback_type == 'traj':
+            pygame.draw.lines(screen, WHITE, False, draw, CIRCLE_SIZE // 4)
+        elif feedback_type == 'half_traj_beg':
+            pygame.draw.lines(screen, WHITE, False, draw[:len(draw) - len(draw)//4], CIRCLE_SIZE // 4)
+        elif feedback_type == 'half_traj_end':
+            pygame.draw.lines(screen, WHITE, False, draw[len(draw) - len(draw)//4:], CIRCLE_SIZE // 4)
 
     # Show score
     font = pygame.font.Font(None, 36)
@@ -597,6 +652,30 @@ if not test_mode:
     plt.savefig('smoothed_fig_new.png')
     plt.show()
 
+    if exp_setup == 'feedback_exp' or exp_setup == 'feedback_exp_ex4':
+        
+        if exp_setup == 'feedback_exp': 
+            labels_fb = ['no feedback', 'traj', 'endpos', 'rl']
+        elif exp_setup == 'feedback_exp_ex4':
+            labels_fb = ['no feedback', 'half_traj_beg', 'half_traj_end', 'traj']
+        
+        colors_fb = ['purple', 'green', 'blue', 'orange']
+        plt.figure(figsize=(16,8))
+        plt.xlabel('#Attempt')
+        plt.ylabel('Error Angle (degrees)')
+        plt.xlim(0, 100)
+        plt.axhline(y=0, color='black', linestyle='dashed')
+        for change in range(1,3):
+            plt.axvline(x=l_timestamps_array[change], color='red')
+            plt.text(l_timestamps_array[change], np.nanmax(smoothed_errors_list)+4, pertubations[change -1], color = 'red',rotation=0, va='top')
+        for i in range(4):
+            plt.plot(smoothed_errors_list[int(l_timestamps_array[3*i]) : int(l_timestamps_array[3*i + 3])], color=colors_fb[i], label=labels_fb[i])
+            plt.plot(mplusv_basel1[int(l_timestamps_array[3*i]) : int(l_timestamps_array[3*i + 3])], color=colors_fb[i], linestyle='dashed')
+            plt.plot(mminusv_basel1[int(l_timestamps_array[3*i]) : int(l_timestamps_array[3*i + 3])], color=colors_fb[i], linestyle='dashed')
+
+        plt.legend()
+        plt.savefig('fb_comparison_new.png')
+        plt.show()
 
     div = 1000
     new_time_per_trial = [val/div for val in l_time_per_trial]
